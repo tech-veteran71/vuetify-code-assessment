@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useBlogStore } from "@/stores/blogStore";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
-import { ref, watch, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 const authStore = useAuthStore();
 const blogStore = useBlogStore();
@@ -12,23 +12,30 @@ const { posts, isLoading } = storeToRefs(blogStore);
 const router = useRouter();
 const showLoginAlert = ref(false);
 
-// View Mode Toggle (Saved in localStorage)
+// ✅ View Mode Toggle
 const viewMode = ref(localStorage.getItem("viewMode") || "card");
 
-// Pagination Setup
-const postsPerPage = 6; // Number of posts per page
+// ✅ Pagination State
+const itemsPerPage = 6; // Show 6 posts per page
 const currentPage = ref(Number(localStorage.getItem("currentPage")) || 1);
 
-// Compute paginated posts based on the current page
-const paginatedPosts = computed(() => {
-  const start = (currentPage.value - 1) * postsPerPage;
-  return posts.value.slice(start, start + postsPerPage);
+// ✅ Compute the total number of pages
+const totalPages = computed(() => Math.ceil(posts.value.length / itemsPerPage));
+
+// ✅ Ensure current page does not exceed max pages
+watch([posts, totalPages], () => {
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value || 1;
+  }
 });
 
-// Total pages calculation
-const totalPages = computed(() => Math.ceil(posts.value.length / postsPerPage));
+// ✅ Compute paginated posts dynamically
+const paginatedPosts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return posts.value.slice(start, start + itemsPerPage);
+});
 
-// Save page state to localStorage
+// ✅ Save current page in localStorage
 watch(currentPage, (newPage) => {
   localStorage.setItem("currentPage", newPage.toString());
 });
@@ -44,12 +51,11 @@ const handleAddPostClick = () => {
 const deletePost = async (id: string) => {
   await blogStore.deletePost(id);
 };
-
 </script>
 
 <template>
   <v-container>
-    <!-- Toggle between List & Card View -->
+    <!-- ✅ Toggle between List & Card View -->
     <v-row class="d-flex align-center justify-space-between mb-4">
       <v-col cols="6">
         <v-btn-toggle
@@ -67,7 +73,7 @@ const deletePost = async (id: string) => {
       </v-col>
     </v-row>
 
-    <!-- Show Loader While Fetching Posts -->
+    <!-- ✅ Show Loader While Fetching Posts -->
     <v-row
       v-if="isLoading"
       class="d-flex justify-center align-center"
@@ -80,7 +86,7 @@ const deletePost = async (id: string) => {
       />
     </v-row>
 
-    <!-- No Blog Posts Available -->
+    <!-- ✅ No Blog Posts Available -->
     <v-row
       v-else-if="posts.length === 0"
       class="d-flex justify-center align-center text-center"
@@ -112,7 +118,7 @@ const deletePost = async (id: string) => {
       </v-col>
     </v-row>
 
-    <!-- Blog Posts (Card View) -->
+    <!-- ✅ Blog Posts (Card View with Pagination) -->
     <v-row v-else-if="viewMode === 'card'">
       <v-col
         v-for="post in paginatedPosts"
@@ -181,58 +187,7 @@ const deletePost = async (id: string) => {
       </v-col>
     </v-row>
 
-    <!-- Blog Posts (List View) -->
-    <v-row v-else-if="viewMode === 'list'">
-      <v-col cols="12">
-        <v-table density="comfortable">
-          <thead>
-            <tr>
-              <th class="text-left">
-                Title
-              </th>
-              <th class="text-left">
-                Author
-              </th>
-              <th class="text-left">
-                Date
-              </th>
-              <th class="text-left">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="post in paginatedPosts"
-              :key="post.id"
-            >
-              <td>{{ post.title }}</td>
-              <td>{{ post.author }}</td>
-              <td>{{ post.date }}</td>
-              <td>
-                <v-btn
-                  v-if="user"
-                  icon
-                  :to="`/edit/${post.id}`"
-                >
-                  <v-icon>mdi-pencil</v-icon>
-                </v-btn>
-                <v-btn
-                  v-if="user"
-                  icon
-                  color="error"
-                  @click="deletePost(post.id)"
-                >
-                  <v-icon>mdi-delete</v-icon>
-                </v-btn>
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-      </v-col>
-    </v-row>
-
-    <!-- Pagination Controls -->
+    <!-- ✅ Pagination Controls (Fixed) -->
     <v-row
       v-if="totalPages > 1"
       class="d-flex justify-center mt-4"
@@ -240,13 +195,14 @@ const deletePost = async (id: string) => {
       <v-pagination
         v-model="currentPage"
         :length="totalPages"
+        :total-visible="5"
         color="primary"
       />
     </v-row>
 
-    <!-- "Add New Post" Button -->
+    <!-- 🚀 "Add New Post" Button -->
     <v-btn
-      v-if="posts.length > 0 && user"
+      v-if="posts.length > 0"
       color="primary"
       class="mt-6"
       variant="flat"
@@ -258,7 +214,7 @@ const deletePost = async (id: string) => {
       </v-icon> Add New Post
     </v-btn>
 
-    <!-- Login Required Alert -->
+    <!-- 🔥 Login Required Alert -->
     <v-dialog
       v-model="showLoginAlert"
       max-width="400"
